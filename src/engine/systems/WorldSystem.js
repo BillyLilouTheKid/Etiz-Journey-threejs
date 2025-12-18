@@ -1,5 +1,5 @@
 import GameLoop from "../core/GameLoop";
-
+import CannonDebugger from 'cannon-es-debugger';
 
 class WorldSystem {
     #camera;
@@ -7,17 +7,27 @@ class WorldSystem {
     #physic;
     #renderer;
     #gameLoop;
-    constructor(camera, scene, physic, renderer) {
+    #cannonDebug;
+    constructor(camera, scene, physic, renderer, debug = false) {
         this.#camera = camera;
         this.#scene = scene;
         this.#physic = physic;
         this.#renderer = renderer;
-        this.#gameLoop = new GameLoop(this.#camera, this.#scene, this.#physic, this.#renderer);
+        if (debug) {
+            this.#cannonDebug = new CannonDebugger(this.#scene, this.#physic);
+        }
+        this.#gameLoop = new GameLoop(this.#camera, this.#scene, this.#physic, this.#renderer, this.#cannonDebug);
     }
 
     addEntity(entity) {
         if (entity.mesh) this.#scene.add(entity.mesh);
-        if (entity.body) this.#physic.addBody(entity.body);
+        if (entity.bodies) {
+            if (typeof entity.bodies == "object") {
+                entity.bodies.forEach((body, key) => {
+                    this.#physic.addBody(body);
+                });
+            }
+        }
         this.#gameLoop.addUpdatable(entity);
     }
 

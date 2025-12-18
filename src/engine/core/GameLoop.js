@@ -5,16 +5,18 @@ export default class GameLoop {
     #scene;
     #renderer;
     #physic;
+    #debugMode;
     #updatables;
-    constructor(camera, scene, physic, renderer) {
+    constructor(camera, scene, physic, renderer, debugMode) {
         this.#camera = camera;
         this.#scene = scene;
         this.#physic = physic;
         this.#renderer = renderer;
-        this.#updatables = []; // liste des objets qui ont une méthode "tick"
+        this.#debugMode = debugMode;
+        this.#updatables = []; // array of all the objects that contain a "tick" method
     }
 
-    // Ajoute un objet à mettre à jour chaque frame
+    // add a new updatable object to the array
     addUpdatable(obj) {
         this.#updatables.push(obj);
     }
@@ -24,18 +26,20 @@ export default class GameLoop {
         const animate = (time) => {
 
             const delta = clock.getDelta();
-            // 1. update tous les objets
+            // 1. update all the objecs
             this.#updatables.forEach(obj => {
                 if (obj.tick) obj.tick(delta);
             });
 
             this.#physic.fixedStep();
 
-            // 2. render la scène
+            // 2. render the scene
             this.#renderer.render(this.#scene, this.#camera);
 
-            // 3. relance la frame suivante
+            // 3. relaunch the next animation frame
             requestAnimationFrame(animate);
+
+            if (this.#debugMode) this.#debugMode.update();
         };
 
         requestAnimationFrame(animate);

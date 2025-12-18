@@ -1,18 +1,20 @@
-import { LoopOnce, LoopPingPong } from 'three';
-import { StateEnum } from '../../../types/enums';
+import { LoopOnce } from 'three';
+import { ArmatureLayerEnum, StateEnum } from '../../../../types/enums';
+import { getClipFromProvider, addClipToProvider } from '../../provider/animationProvider';
 
-export default class AnimationSystem {
-    constructor(mixer, animations) {
+export default class SharedAnimationSystem {
+    constructor(objectName, mixer, animations) {
+        this.objectName = objectName;
         this.mixer = mixer;
         this.stateActions = {};
-        this.gestureActions = {};
 
         // Separate animation from type
         animations.forEach((clip) => {
             if (Object.values(StateEnum).includes(clip.name)) {
                 this.stateActions[clip.name] = this.mixer.clipAction(clip);
-            } else {
-                this.gestureActions[clip.name] = this.mixer.clipAction(clip);
+            }
+            else {
+                addClipToProvider(clip, this.objectName, clip.name);
             }
         });
 
@@ -74,8 +76,8 @@ export default class AnimationSystem {
         }
     }
 
-    playActionByName(name, loop = LoopOnce, clamp = false, backCrossFade = true) {
-        const action = this.gestureActions[name];
+    playActionByName(actionName, loop = LoopOnce, clamp = false, backCrossFade = true, layer = ArmatureLayerEnum.All) {
+        const action = this.mixer.clipAction(getClipFromProvider(this.objectName, actionName, layer));
         if (!action) return;
         this.playAction(action, loop, clamp, backCrossFade);
     }
