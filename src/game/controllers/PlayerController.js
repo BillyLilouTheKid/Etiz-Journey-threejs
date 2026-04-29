@@ -1,32 +1,31 @@
-import { Vec3, Quaternion } from "cannon-es";
+import { Vec3, Quaternion, Body } from "cannon-es";
 import InputSystem from "../../engine/systems/InputSystem";
-import { StateEnum } from "../../types/enums";
+import { ObserverObjectEnum, StateEnum, TypeOfAttack } from "../../types/enums";
 import Controller from "./base/Controller";
 import PlayerAnimationSystem from "../../engine/animations/system/PlayerAnimationSystem";
+import GameObserver from "../../engine/observer/GameObserver";
 
 export default class PlayerController extends Controller {
-    constructor(body, speed, jump, triggerArea) {
-        super(body, speed)
-        this.jump = jump;
+    constructor(playerId) {
+        const playerEntity = GameObserver.getGameObject(ObserverObjectEnum.Entity, playerId);
+        super(playerEntity.bodies.get("base"), playerEntity.speed)
+        this.rootEntity = playerEntity;
         // used to handle all user inputs
         this.inputSystem = new InputSystem(this.keyEvent);
         this.animationSystem = null;
 
         this.onGround = true;
         this.chargedPunchTimer = null;
-        this.isGrabbingObject = false;
         this.isChargingPunch = false;
         this.comboStep = 1;
-
-        this.triggerArea = triggerArea;
 
         this.crossStepDirection = null;
         
         // when the body is landing on the ground we update the isGround status
         this.body.addEventListener("collide", (event) => {
             if (event.body.isGround) {
-                if (!this.onGround) this.animationSystem.playJumpAction(false);
-                this.onGround = true;
+                // if (!this.rootEntity.onGround) this.animationSystem.playJumpAction(false);
+                this.rootEntity.onGround = true;
             }
         });
     }
@@ -56,7 +55,7 @@ export default class PlayerController extends Controller {
                 this.crossStepDirection = this.controls[3] && isPressed ? "back" : null;
                 break;
             // case ' ':
-            //     if (!this.isGrabbingObject) this.controls[2] = this.onGround ? 1 : 0;
+            //     if (!this.isGrabbingObject) this.controls[2] = this.rootEntity.onGround ? 1 : 0;
             //     break;
             case 'a':
             case 'q':
@@ -64,7 +63,7 @@ export default class PlayerController extends Controller {
             case 'Q':
                 // if the player is not grabbing an object, released a button and is not charging his punch then
                 // we do the attackCombo or else the player is charging a big punch
-                !this.isGrabbingObject && !isPressed && !this.isChargingPunch? this.attackCombo() : this.chargedPunch(isPressed);
+                if (!this.carriedEntity) !isPressed && !this.isChargingPunch ? this.attackCombo() : this.chargedPunch(isPressed);
                 break;
             case 'd':
             case 'D': // if the player press the d key, we try to grab an object
@@ -93,18 +92,29 @@ export default class PlayerController extends Controller {
             this.isChargingPunch = false; // set the flag back to false
             this.chargedPunchTimer = null; // we delete the setTimeout function
             this.animationSystem.playChargedPunchAction(false); // we play the charging punch animation
+            this.rootEntity.activeHitbox.activate(100,{damage: 50, pushForce:100, typeAttack: TypeOfAttack.Charged});
         }
 
     }
 
+    // handle the grapping and throw of an entity
     grabThrowObject() {
-        if (!this.isGrabbingObject) {
-            this.isGrabbingObject = true;
-            this.animationSystem.playGrabThrowActions(this.isGrabbingObject);
+        // if the player does not have any carried entity on his hand
+        if (!this.carriedEntity) {
+            // we get the entity intersecting the player hitbox
+            const liftedEntity = this.rootEntity.activeHitbox.lift();
+            if (liftedEntity) {
+                this.animationSystem.playGrabAction(); // we play the grab action animation
+                this.liftEntity(liftedEntity);
+                // if the lifted entity does have a lifted controller method
+                if (liftedEntity.controller.lifted) liftedEntity.controller.lifted(); // we play the lifted animation
+            }
         }
         else {
-            this.isGrabbingObject = false;
-            this.animationSystem.playGrabThrowActions(this.isGrabbingObject);
+            // if the lifted entity does have a throwned controller method
+            if (this.carriedEntity.throwned) this.carriedEntity.throwned();
+            this.thrownEntity();
+            this.animationSystem.playThrowAction(); // we play the thrown action animation
         }
     }
 
@@ -120,15 +130,17 @@ export default class PlayerController extends Controller {
         this.animationSystem.playComboAction("Combo_Punch" + this.comboStep, resetCombotStep);
         if (this.comboStep < 4) {
             this.comboStep++; // everytime we hit the punch, we increased the step during the combo
+            this.rootEntity.activeHitbox.activate(100,{damage: 10, typeAttack: TypeOfAttack.Normal});
         }
         else {
             this.comboStep = 1;
+            this.rootEntity.activeHitbox.activate(100,{damage: 10, pushForce: 80, typeAttack: TypeOfAttack.Normal});
         }
     }
     
     // this function will find the nearest ennemy entity and lock the player rotation to it
     lockToNearestTarget(isPressed) {
-        this.target = isPressed ? this.triggerArea.getNearestTarget() : null;
+        this.target = isPressed ? GameObserver.getHandlers("Entities").findClosestEntityTo(this.rootEntity, this.rootEntity.triggerRadius) : null;
         if (this.target) {
             this.setBodyRotation(this.target.position.x - this.body.position.x, this.target.position.z - this.body.position.z, 1);
         }
@@ -148,7 +160,6 @@ export default class PlayerController extends Controller {
         // input => physique
         const active = this.controls[ 0 ] !== 0 || this.controls[ 1 ] !== 0;
         const isLockedOn = this.controls[3] == 1;
-        //console.log(`${active} && ${isLockedOn}`)
         const activeWhileLocked = active && isLockedOn;
 		let state = isLockedOn ? StateEnum.Lockin : active ? StateEnum.Walk : StateEnum.Idle;
         if (activeWhileLocked) state = StateEnum[`CrossStep_${this.crossStepDirection}`];
@@ -156,19 +167,32 @@ export default class PlayerController extends Controller {
         // Physic
         if (["Lockin","Walk","Run",].includes(state) || activeWhileLocked) {
             const force = this.speed; // ajuste
-            this.body.velocity.x = this.controls[0] * force * (this.onGround ? 1 : 0.5);
-            this.body.velocity.z = this.controls[1] * force * (this.onGround ? 1 : 0.5);
+            this.body.velocity.x = this.controls[0] * force * (this.rootEntity.onGround ? 1 : 0.5);
+            this.body.velocity.z = this.controls[1] * force * (this.rootEntity.onGround ? 1 : 0.5);
 
             const posX = !this.target ? this.controls[0] : this.target.position.x - this.body.position.x;
             const posY = !this.target ? this.controls[1] : this.target.position.z - this.body.position.z;
             this.setBodyRotation(posX, posY);
         }
         // jump
-        // if (this.controls[2] === 1 && this.onGround && !this.isGrabbingObject) {
-        //     this.animationSystem.playJumpAction(this.onGround);
+        // if (this.controls[2] === 1 && this.rootEntity.onGround && !this.isGrabbingObject) {
+        //     this.animationSystem.playJumpAction(this.rootEntity.onGround);
         //     this.body.applyImpulse({ x: 0, y: this.jump, z: 0 });
-        //     this.onGround = false;
+        //     this.rootEntity.onGround = false;
         // }
+        if (this.target && this.rootEntity.rootMesh.position.distanceToSquared(this.target.position) > this.rootEntity.triggerRadius) {
+            this.target = null;
+        }
+        if (this.carriedEntity) this.carryEntity();
+    }
+
+    gettingHit() {
+        this.animationSystem.playActionByName("Getting_hit");
+    }
+
+    dying() {
+        this.animationSystem.playActionByName("Death", false, false);
+        GameObserver.getHandlers("Entities").killEntity(this.rootEntity);
     }
 
     // this function is run every tick

@@ -13,12 +13,17 @@ export default class GameLoop {
         this.#physic = physic;
         this.#renderer = renderer;
         this.#debugMode = debugMode;
-        this.#updatables = []; // array of all the objects that contain a "tick" method
+        this.#updatables = new Set(); // set of all the objects that contain a "tick" method
     }
 
-    // add a new updatable object to the array
+    // add a new updatable object to the set
     addUpdatable(obj) {
-        this.#updatables.push(obj);
+        this.#updatables.add(obj);
+    }
+
+    // delete a updatable object from the set
+    deleteUpdatable(obj) {
+        this.#updatables.delete(obj);
     }
 
     start() {

@@ -28,8 +28,8 @@ export default class SharedAnimationSystem {
     }
 
     // --- State Handlers (idle, walk, run...)
-    updateState(newState) {
-        if (this.tempAction) return; // ignore if temp action play
+    updateState(newState, force = false) {
+        if (this.tempAction && !force) return; // ignore if temp action play
         if (newState === this.currentStateName) return;
 
         const next = this.stateActions[newState];
@@ -43,7 +43,7 @@ export default class SharedAnimationSystem {
     
 
     // --- Actions handlers (attack, jump, etc.)
-    playAction(action, loop = LoopOnce, clamp = false, backCrossFade = true, isTempPreviousAction = false) {
+    playAction(action, loop = LoopOnce, clamp = false, backCrossFade = true, isTempPreviousAction = false, callbackEnd = null) {
         const nextAction = action;
 
         // stop previous action if exist
@@ -70,16 +70,17 @@ export default class SharedAnimationSystem {
                     this.mixer.removeEventListener('finished', onFinished);
                     this.crossFade(nextAction, this.currentStateAction, 0.2);
                     this.tempAction = null;
+                    if (callbackEnd) callbackEnd();
                 }
             };
             this.mixer.addEventListener('finished', onFinished);
         }
     }
 
-    playActionByName(actionName, loop = LoopOnce, clamp = false, backCrossFade = true, layer = ArmatureLayerEnum.All) {
+    playActionByName(actionName, loop = LoopOnce, clamp = false, backCrossFade = true, layer = ArmatureLayerEnum.All, callbackEnd = null) {
         const action = this.mixer.clipAction(getClipFromProvider(this.objectName, actionName, layer));
         if (!action) return;
-        this.playAction(action, loop, clamp, backCrossFade);
+        this.playAction(action, loop, clamp, backCrossFade, false, callbackEnd);
     }
 
     crossFade(from, to, duration) {

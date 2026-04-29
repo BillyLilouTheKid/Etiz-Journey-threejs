@@ -10,7 +10,6 @@ export const StateEnum = Object.freeze({
     "CrossStep_back": "CrossStep_back",
     "CrossStep_front": "CrossStep_front",
     "Lockin": "Lockin",
-    "Dead": "Dead"
 });
 
 // represent the differents type of animation layer in a body
@@ -20,3 +19,40 @@ export const ArmatureLayerEnum = Object.freeze({
     "Lower": "Lower",
     "Both": "Both"
 });
+
+// represent the different type of hitbox
+export const HitboxModeEnum = Object.freeze({
+    "Passive": "Passive",
+    "Active": "Active"
+});
+
+// represent the different type of Object in the game
+export const ObserverObjectEnum = Object.freeze({
+    "World": "World",
+    "Props": "Props",
+    "Entity": "Entity",
+    "Player": "Player",
+    "Item": "Item",
+})
+
+// represent the entity status
+export const EntityStatut = Object.freeze({
+    "Active": "Active",
+    "Stunned": "Stunned",
+    "Lifted": "Lifted",
+    "Throwed": "Throwed",
+    "Pushed": "Pushed",
+    "Dead": "Dead"
+});
+
+export const TypeOfAttack = Object.freeze({
+    "Normal": "Normal",
+    "Charged": "Charged",
+    "ThrowedEntity": "ThrowedEntity"
+
+})
+
+export const TypeOfThrown = Object.freeze({
+    "Throw" : "Throw",
+    "PunchPush" : "PunchPush"
+})

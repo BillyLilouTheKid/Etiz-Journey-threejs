@@ -90,16 +90,16 @@ export default class PlayerAnimationSystem extends LayerAnimationSystem{
         }
     }
 
-    playGrabThrowActions(isGrabbingObject) {
+    playGrabAction() {
         // if the player is grabbing an object then we play the grabbing animation
-        if (isGrabbingObject) {
-            const grabAction = this.gestureActions["Grab"]["Upper"];
-            this.playAction(grabAction, LoopOnce, true, false);
-        }
-        else { // if the player have an object in his hand, we play the throw animation to throw the object
-            const throwAction = this.gestureActions["Throw"]["Upper"];
-            this.playAction(throwAction, LoopOnce, true, true, true);
-        }
+        const grabAction = this.gestureActions["Grab"]["Upper"];
+        this.playAction(grabAction, LoopOnce, true, false);
+    }
+
+    playThrowAction() {
+        // if the player have an object in his hand, we play the throw animation to throw the object
+        const throwAction = this.gestureActions["Throw"]["Upper"];
+        this.playAction(throwAction, LoopOnce, true, true, true);
     }
     
     // this handle the jump animation

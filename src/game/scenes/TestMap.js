@@ -4,12 +4,13 @@ import { createScene } from "../../engine/components/scene";
 import { createRenderer } from "../../engine/core/renderer";
 import { createLights } from "../../engine/components/light";
 import { Resizer } from "../../engine/core/Resizer";
-import Platform from "../models/props/Platform";
+import Platform from "../gameObjects/props/Platform";
 import { createPhysicSystem } from "../../engine/components/physic";
-import WorldSystem from "../../engine/systems/worldSystem";
-import Etiz from "../entities/characters/Etiz";
-import Sbire from "../entities/characters/Sbire";
+import WorldSystem from "../../engine/systems/WorldSystem";
+import Etiz from "../gameObjects/entities/characters/Etiz";
+import Sbire from "../gameObjects/entities/characters/Sbire";
 import { Vec3 } from "cannon-es";
+import GameObserver from "../../engine/observer/GameObserver";
 
 export default class TestMap {
 
@@ -31,19 +32,14 @@ export default class TestMap {
 
         // Create a static plane for the ground
         const ground = new Platform();
-        this.#worldSystem.addEntity(ground);
 
         const player = new Etiz(new Vec3(0,5,-3));
-        this.#worldSystem.addEntity(player);
 
         const sbires = [
-            // new Sbire(player.getBody("base"), new Vec3(-10,5,-13)),
-            new Sbire(player.getBody("base"), new Vec3(-6,5,-3)),
-            // new Sbire(player.getBody("base"), new Vec3(-10,5,3)),
+            new Sbire(player, new Vec3(-10,5,-13)),
+            new Sbire(player, new Vec3(-6,5,-3)),
+            new Sbire(player, new Vec3(-10,5,3)),
         ];
-        sbires.forEach((enemy)=>{
-            this.#worldSystem.addEntity(enemy);
-        })
         
 
         // Resizer
@@ -51,6 +47,10 @@ export default class TestMap {
             resizer.onResize = () => {
             this.render();
         };
+    }
+
+    getWorldSystem() {
+        return this.#worldSystem;
     }
 
     start() {

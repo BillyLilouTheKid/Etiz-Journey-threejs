@@ -47,7 +47,7 @@ export default class LayerAnimationSystem {
     
 
     // --- Actions handlers (attack, jump, etc.)
-    playAction(action, loop = LoopOnce, clamp = false, backCrossFade = true, isTempPreviousAction = false) {
+    playAction(action, loop = LoopOnce, clamp = false, backCrossFade = true, isTempPreviousAction = false, callbackEnd = null) {
         const nextActions = Array.isArray(action) ? action : [action];
 
         // stop previous action if exist
@@ -84,16 +84,17 @@ export default class LayerAnimationSystem {
                     }
                     this.crossFade(nextActions.find((action)=>action == e.action), this.currentStateAction[e.action.layerBodyMask], 0.2);
                     this.tempAction = null;
+                    if (callbackEnd) callbackEnd();
                 }
             };
             this.mixer.addEventListener('finished', onFinished);
         }
     }
 
-    playActionByName(actionName, loop = LoopOnce, clamp = false, backCrossFade = true, layer = ArmatureLayerEnum.Both) {
+    playActionByName(actionName, loop = LoopOnce, clamp = false, backCrossFade = true, layer = ArmatureLayerEnum.Both, callbackEnd = null) {
         const action = this.gestureActions[actionName][layer];
         if (!action) return;
-        this.playAction(action, loop, clamp, backCrossFade);
+        this.playAction(action, loop, clamp, backCrossFade, false, callbackEnd);
     }
 
     crossFade(from, to, duration) {
