@@ -1,4 +1,4 @@
-const setSize = (container, camera, renderer) => {
+const setSize = (/** @type {{ clientWidth: number; clientHeight: number; }} */ container, /** @type {{ aspect: number; updateProjectionMatrix: () => void; }} */ camera, /** @type {{ setSize: (arg0: any, arg1: any) => void; setPixelRatio: (arg0: number) => void; }} */ renderer) => {
   camera.aspect = container.clientWidth / container.clientHeight;
   camera.updateProjectionMatrix();
 
@@ -7,6 +7,11 @@ const setSize = (container, camera, renderer) => {
 };
 
 class Resizer {
+  /**
+   * @param {{ clientWidth: number; clientHeight: number; }} container
+   * @param {import("three").PerspectiveCamera} camera
+   * @param {import("three").WebGLRenderer} renderer
+   */
   constructor(container, camera, renderer) {
 
     // set initial size on load

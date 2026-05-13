@@ -1,14 +1,19 @@
-import { Vec3, Quaternion, Body } from "cannon-es";
+import { Vec3, Quaternion } from "cannon-es";
 import InputSystem from "../../engine/systems/InputSystem";
-import { ObserverObjectEnum, StateEnum, TypeOfAttack } from "../../types/enums";
+import { CrossStepState, ObserverObjectEnum, StateEnum, TypeOfAttack } from "../../types/enums";
 import Controller from "./base/Controller";
 import PlayerAnimationSystem from "../../engine/animations/system/PlayerAnimationSystem";
 import GameObserver from "../../engine/observer/GameObserver";
+import { LoopOnce } from "three";
 
 export default class PlayerController extends Controller {
+    /**
+     * @param {string} playerId
+     */
     constructor(playerId) {
+        /**@type {Entity} */
         const playerEntity = GameObserver.getGameObject(ObserverObjectEnum.Entity, playerId);
-        super(playerEntity.bodies.get("base"), playerEntity.speed)
+        super(playerEntity.body, playerEntity.speed)
         this.rootEntity = playerEntity;
         // used to handle all user inputs
         this.inputSystem = new InputSystem(this.keyEvent);
@@ -19,10 +24,11 @@ export default class PlayerController extends Controller {
         this.isChargingPunch = false;
         this.comboStep = 1;
 
+        /**@type {CrossStepDirection | null} */
         this.crossStepDirection = null;
         
         // when the body is landing on the ground we update the isGround status
-        this.body.addEventListener("collide", (event) => {
+        this.body.addEventListener("collide", (/** @type {CollideEvent}*/event) => {
             if (event.body.isGround) {
                 // if (!this.rootEntity.onGround) this.animationSystem.playJumpAction(false);
                 this.rootEntity.onGround = true;
@@ -31,10 +37,20 @@ export default class PlayerController extends Controller {
     }
 
 
+
+    /**
+     * 
+     * @param {AnimationMixer} mixer 
+     * @param {AnimationClip[]} animations 
+     */
     setPlayerAnimations(mixer, animations) {
         this.animationSystem = new PlayerAnimationSystem(mixer, animations);
     }
 
+    /**
+     * @param {string} keyCode
+     * @param {boolean} isPressed
+     */
     // this function handle all the player control depending of the key inputs
     keyEvent = (keyCode, isPressed) => {
         switch(keyCode) {
@@ -76,6 +92,10 @@ export default class PlayerController extends Controller {
         }  
     }
 
+    /**
+     * 
+     * @param {boolean} isPressed 
+     */
     // handle the charging punch control
     chargedPunch(isPressed) {
         // when we press the button, it initiate the charging punch
@@ -84,14 +104,14 @@ export default class PlayerController extends Controller {
                 // we set the chargedPunchTimer to put a delay of 800ms to make that the player is indeed charging his punch
                 this.chargedPunchTimer = setTimeout(() => {
                     this.isChargingPunch = true;
-                    this.animationSystem.playChargedPunchAction(true);
+                    this.animationSystem?.playChargedPunchAction(true);
                 }, 800); // if the player is still holding the button then we play the initCharging action and set the flag to true
             }
         }
         else if (this.isChargingPunch && !isPressed) { // if the player released the button while charging his punch
             this.isChargingPunch = false; // set the flag back to false
             this.chargedPunchTimer = null; // we delete the setTimeout function
-            this.animationSystem.playChargedPunchAction(false); // we play the charging punch animation
+            this.animationSystem?.playChargedPunchAction(false); // we play the charging punch animation
             this.rootEntity.activeHitbox.activate(100,{damage: 50, pushForce:100, typeAttack: TypeOfAttack.Charged});
         }
 
@@ -104,17 +124,15 @@ export default class PlayerController extends Controller {
             // we get the entity intersecting the player hitbox
             const liftedEntity = this.rootEntity.activeHitbox.lift();
             if (liftedEntity) {
-                this.animationSystem.playGrabAction(); // we play the grab action animation
+                this.animationSystem?.playGrabAction(); // we play the grab action animation
                 this.liftEntity(liftedEntity);
                 // if the lifted entity does have a lifted controller method
                 if (liftedEntity.controller.lifted) liftedEntity.controller.lifted(); // we play the lifted animation
             }
         }
         else {
-            // if the lifted entity does have a throwned controller method
-            if (this.carriedEntity.throwned) this.carriedEntity.throwned();
             this.thrownEntity();
-            this.animationSystem.playThrowAction(); // we play the thrown action animation
+            this.animationSystem?.playThrowAction(); // we play the thrown action animation
         }
     }
 
@@ -122,12 +140,12 @@ export default class PlayerController extends Controller {
     attackCombo() {
         // we pressing the punch button, it assume the player will initiate a charging punch.
         // but if immedialty released the button to throw a quick punch then we clear the timeout
-        clearTimeout(this.chargedPunchTimer);
+        if (this.chargedPunchTimer) clearTimeout(this.chargedPunchTimer);
         this.chargedPunchTimer = null;
         const resetCombotStep = () => {
             this.comboStep = 1;
         }; // a callback function to reset the step of the punch combos
-        this.animationSystem.playComboAction("Combo_Punch" + this.comboStep, resetCombotStep);
+        this.animationSystem?.playComboAction("Combo_Punch" + this.comboStep, resetCombotStep);
         if (this.comboStep < 4) {
             this.comboStep++; // everytime we hit the punch, we increased the step during the combo
             this.rootEntity.activeHitbox.activate(100,{damage: 10, typeAttack: TypeOfAttack.Normal});
@@ -138,14 +156,27 @@ export default class PlayerController extends Controller {
         }
     }
     
+
+    /**
+     * 
+     * @param {boolean} isPressed 
+     */
     // this function will find the nearest ennemy entity and lock the player rotation to it
     lockToNearestTarget(isPressed) {
-        this.target = isPressed ? GameObserver.getHandlers("Entities").findClosestEntityTo(this.rootEntity, this.rootEntity.triggerRadius) : null;
+        /**@type {Entity | null} */
+        this.target = isPressed ? GameObserver.getEntitiesHandler().findClosestEntityTo(this.rootEntity, this.rootEntity.triggerRadius) : null;
         if (this.target) {
-            this.setBodyRotation(this.target.position.x - this.body.position.x, this.target.position.z - this.body.position.z, 1);
+            const targetRootMesh = this.target.rootMesh;
+            this.setBodyRotation(targetRootMesh.position.x - this.body.position.x, targetRootMesh.position.z - this.body.position.z, 1);
         }
     }
 
+    /**
+     * 
+     * @param {number} posX
+     * @param {number} posY
+     * @param {number} interpolation 
+     */
     setBodyRotation(posX, posY, interpolation = 0.1) {
         const targetAngle = Math.atan2(posX, posY); 
         // Create target quaternion
@@ -161,17 +192,18 @@ export default class PlayerController extends Controller {
         const active = this.controls[ 0 ] !== 0 || this.controls[ 1 ] !== 0;
         const isLockedOn = this.controls[3] == 1;
         const activeWhileLocked = active && isLockedOn;
+        /**@type {string} */
 		let state = isLockedOn ? StateEnum.Lockin : active ? StateEnum.Walk : StateEnum.Idle;
-        if (activeWhileLocked) state = StateEnum[`CrossStep_${this.crossStepDirection}`];
+        if (activeWhileLocked && this.crossStepDirection) state = CrossStepState[this.crossStepDirection];
         if (this.animationSystem) this.animationSystem.updateState(state);
         // Physic
-        if (["Lockin","Walk","Run",].includes(state) || activeWhileLocked) {
+        if ((["Lockin","Walk","Run",].includes(state) || activeWhileLocked)) {
             const force = this.speed; // ajuste
             this.body.velocity.x = this.controls[0] * force * (this.rootEntity.onGround ? 1 : 0.5);
             this.body.velocity.z = this.controls[1] * force * (this.rootEntity.onGround ? 1 : 0.5);
-
-            const posX = !this.target ? this.controls[0] : this.target.position.x - this.body.position.x;
-            const posY = !this.target ? this.controls[1] : this.target.position.z - this.body.position.z;
+            
+            const posX = !this.target ? this.controls[0] : this.target.rootMesh.position.x - this.body.position.x;
+            const posY = !this.target ? this.controls[1] : this.target.rootMesh.position.z - this.body.position.z;
             this.setBodyRotation(posX, posY);
         }
         // jump
@@ -180,19 +212,19 @@ export default class PlayerController extends Controller {
         //     this.body.applyImpulse({ x: 0, y: this.jump, z: 0 });
         //     this.rootEntity.onGround = false;
         // }
-        if (this.target && this.rootEntity.rootMesh.position.distanceToSquared(this.target.position) > this.rootEntity.triggerRadius) {
+        if (this.target && this.rootEntity.rootMesh.position.distanceToSquared(this.target.rootMesh.position) > this.rootEntity.triggerRadius) {
             this.target = null;
         }
         if (this.carriedEntity) this.carryEntity();
     }
 
     gettingHit() {
-        this.animationSystem.playActionByName("Getting_hit");
+        this.animationSystem?.playActionByName("Getting_hit");
     }
 
     dying() {
-        this.animationSystem.playActionByName("Death", false, false);
-        GameObserver.getHandlers("Entities").killEntity(this.rootEntity);
+        this.animationSystem?.playActionByName("Death", LoopOnce, false, false);
+        GameObserver.getEntitiesHandler().killEntity(this.rootEntity);
     }
 
     // this function is run every tick

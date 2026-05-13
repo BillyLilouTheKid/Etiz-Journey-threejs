@@ -1,6 +1,11 @@
 import { Vec3, Quaternion } from "cannon-es";
 
 export default class EnemyController {
+    /**
+     * @param {CannonBody} body
+     * @param {number} speed
+     * @param {any} target
+     */
     constructor(body, speed, target) {
         this.body = body;
         this.speed = speed;

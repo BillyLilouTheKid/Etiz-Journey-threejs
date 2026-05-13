@@ -1,10 +1,14 @@
-import { AnimationUtils, LoopOnce, LoopPingPong, LoopRepeat } from "three";
+import { AnimationUtils, LoopOnce, LoopPingPong } from "three";
 import { addClipToProvider, getClipFromProvider, removeClipFromProvider } from "../provider/animationProvider";
 import SharedAnimationSystem from "./base/SharedAnimationSystem";
 import { ArmatureLayerEnum } from "../../../types/enums";
 
 
 export default class SbireAnimationSystem extends SharedAnimationSystem {
+    /**
+     * @param {AnimationMixer} mixer
+     * @param {AnimationClip[]} animations
+     */
     constructor(mixer, animations) {
         super("Sbire", mixer, animations);
         this.initSbireActions();
@@ -30,11 +34,11 @@ export default class SbireAnimationSystem extends SharedAnimationSystem {
         this.playAction(initLiftedAction, LoopOnce, true, false);
 
         // when the first charging punch animation finished, we play this function
-        const onFinishInitLifted = (e) => {
+        const onFinishInitLifted = (/** @type {{ action: any; }} */ e) => {
             if (e.action === initLiftedAction) {
                 this.mixer.removeEventListener('finished', onFinishInitLifted); // we remove the listener
                 const holdLiftedAction = this.mixer.clipAction(getClipFromProvider(this.objectName, "Still_Lifted", ArmatureLayerEnum.All));
-                holdLiftedAction.reset().setLoop(LoopPingPong).setEffectiveWeight(1).play();
+                holdLiftedAction.reset().setLoop(LoopPingPong, Infinity).setEffectiveWeight(1).play();
                 this.crossFade(initLiftedAction, holdLiftedAction, 0.2);
                 this.tempAction = holdLiftedAction;
             }

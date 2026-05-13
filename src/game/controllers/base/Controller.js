@@ -2,16 +2,29 @@ import { Vec3, Quaternion } from "cannon-es";
 import { EntityStatut } from "../../../types/enums";
 
 export default class Controller {
+    /**
+     * @param {CannonBody} body
+     * @param {number} speed
+     */
     constructor(body, speed) {
+        /** @type {CannonBody} */
         this.body = body;
+        /** @type {number} */
         this.speed = speed;
+        /** @type {number[]} */
         this.controls = [0,0,0,0]; // this array represent the x and y axis of moving in an area from -1 to 1 and on index 2 for the jump action and on index 3 for the lock mode
+        /** @type {Entity | null} */
         this.target = null;
+        /** @type {Entity | null} */
         this.rootEntity = null;
+        /** @type {Entity | null} */
         this.carriedEntity = null;
     }
 
     // this function allows to lift an gameObject
+    /**
+     * @param {Entity} entity
+     */
     liftEntity(entity) {
         entity.statut = EntityStatut.Lifted;
         entity.disableBodyCollisionAndPhysic();
@@ -20,8 +33,10 @@ export default class Controller {
 
     // this function will set the position and quaternion (rotation) of an entity on top of the current entity head
     carryEntity() {
-        const playerBody = this.rootEntity.bodies.get("base");
-        const body = this.carriedEntity.bodies.get("base");
+        if (!this.rootEntity || !this.carriedEntity) return;
+        const playerBody = this.rootEntity.body;
+        const body = this.carriedEntity.body;
+
 
         // we create a local vector with a bit of height (3) and a bit forward (1.5)
         const frontVec = new Vec3(0, 3, 1.5);
@@ -36,14 +51,15 @@ export default class Controller {
         const opposite = new Quaternion();
         opposite.setFromAxisAngle(new Vec3(0, 1, 0), Math.PI); // we create a new quaternion that is 180° degree of the y axis
 
-        body.quaternion.copy(this.rootEntity.bodies.get("base").quaternion); // we copy the rotation of the player into the carried entity
+        body.quaternion.copy(this.rootEntity.body.quaternion); // we copy the rotation of the player into the carried entity
         body.quaternion.mult(opposite, body.quaternion); // then we make it rotate to the opposite no matter the rotation of the player thank to the 180 degree quaternion
     }
 
     // this function allow to throw an entity at the direction the player is aiming
     thrownEntity() {
-        const playerBody = this.rootEntity.bodies.get("base");
-        const enemyBody = this.carriedEntity.bodies.get("base");
+        if (!this.rootEntity || !this.carriedEntity) return;
+        const playerBody = this.rootEntity.body;
+        const enemyBody = this.carriedEntity.body;
 
         this.carriedEntity.statut = EntityStatut.Throwed;
 

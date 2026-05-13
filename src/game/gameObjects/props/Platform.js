@@ -6,6 +6,7 @@ import { ObserverObjectEnum } from "../../../types/enums";
 class Platform extends GameObject {
     constructor() {
         // Create a static plane for the ground
+        /**@type {CannonBody} */
         const groundBody = new Body({
             type: Body.STATIC, // can also be achieved by setting the mass to 0
             shape: new Box(new Vec3(100, 0.1, 100)),

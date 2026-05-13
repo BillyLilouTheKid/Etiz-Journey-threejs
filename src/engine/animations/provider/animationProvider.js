@@ -1,56 +1,85 @@
+import { AnimationClip } from "three";
 import { ArmatureBonesLayer } from "../../../constants/config/armatureLayers";
 import { ArmatureLayerEnum } from "../../../types/enums";
-import { AnimationClip } from "three";
+
 
 // object of Maps, where each object key maps to a Map of actions, and each action key maps to an object containing clips for each layer (Upper, Lower, All)
-const AnimationProvider = {};
+/** @type {AnimationProvider} */
+let AnimationProvider = {};
 
 // this function return an AnimationClip targeting the selected bones from the armatures
+/**
+ * @param {AnimationClip} clip
+ * @param {string[]} boneNames
+ */
 function filterClipByBones(clip, boneNames) {
-    const tracks = clip.tracks.filter(track => 
-        boneNames.some(name => track.name.includes(name))
+    const tracks = clip.tracks.filter((/** @type {{ name: string | any[]; }} */ track) => 
+        boneNames.some((/** @type {string} */ name) => track.name.includes(name))
     );
     return new AnimationClip(clip.name, clip.duration, tracks);
 }
 
 // this function add an AnimationClip to the provider
+/**
+ * @param {AnimationClip} clip
+ * @param {string | number} entityType
+ * @param {string} actionName
+ */
 function addClipToProvider(clip, entityType, actionName) {
     if (!AnimationProvider[entityType]) { // if the entityType does not exist, we create an hashmap
         AnimationProvider[entityType] = new Map();
     }
     if (!AnimationProvider[entityType].has(actionName)) { // if the entityType map don't already have an entry for the action
+        /** @type {LayerClips} */
         const layerClips = {
             "All": new AnimationClip(clip.name, clip.duration, clip.tracks),
             "Upper": filterClipByBones(clip, ArmatureBonesLayer[ArmatureLayerEnum.Upper]),
             "Lower": filterClipByBones(clip, ArmatureBonesLayer[ArmatureLayerEnum.Lower]),
         }; // we create an object containing all the layer "All", "Upper", "Lower" clips
-        // we add a new property "Both" that is an array containing the clip for the Upper and Lower part of the armature
-        layerClips[ArmatureLayerEnum.Both] = [layerClips[ArmatureLayerEnum.Upper], layerClips[ArmatureLayerEnum.Lower]];
         AnimationProvider[entityType].set(actionName, layerClips); // we set the action name to the animationProvider
     }
 }
 
 // this function create an object containing AnimationAction by bones layers
+/**
+ * @param {import('three').AnimationMixer} mixer
+ * @param {AnimationClip} clip
+ * @param {string[]} selectedLayers
+ */
 function createActionByLayers(mixer, clip, selectedLayers = [ArmatureLayerEnum.All, ArmatureLayerEnum.Upper, ArmatureLayerEnum.Lower, ArmatureLayerEnum.Both]) {
+    /** @type {LayerActions} */
     const layerActions = {
-        "All": mixer.clipAction(clip),
-        "Upper": mixer.clipAction(filterClipByBones(clip, ArmatureBonesLayer["Upper"])),
-        "Lower": mixer.clipAction(filterClipByBones(clip, ArmatureBonesLayer["Lower"])),
+        "All": [mixer.clipAction(clip)],
+        "Upper": [mixer.clipAction(filterClipByBones(clip, ArmatureBonesLayer["Upper"]))],
+        "Lower": [mixer.clipAction(filterClipByBones(clip, ArmatureBonesLayer["Lower"]))],
     }; // we create an object containing all the layer "All", "Upper", "Lower" actions
-    // we add a new property "Both" that is an array containing the clip for the Upper and Lower part of the armature
-    layerActions[ArmatureLayerEnum.Both] = [layerActions[ArmatureLayerEnum.Upper], layerActions[ArmatureLayerEnum.Lower]];
-    for (const layer in layerActions) {
-        if (selectedLayers.includes(layer)) { // we check if the layer from object is part of the selectedLayers
-            layerActions[layer].layerBodyMask = layer; // we add a layerBodyMask property to say the layer the action is on
-        }
-        else { // if not then we delete it
-            delete layerActions[layer];
-        }
+
+    for (const layer of Object.keys(layerActions)) {
+        layerActions[layer][0].layerBodyMask = layer;
     }
-    return layerActions;
+
+    // we add a new property "Both" that is an array containing the clip for the Upper and Lower part of the armature
+    layerActions[ArmatureLayerEnum.Both] = [
+        /** @type {GameAnimationAction} */ (layerActions[ArmatureLayerEnum.Upper][0]),
+        /** @type {GameAnimationAction} */ (layerActions[ArmatureLayerEnum.Lower][0])
+    ];
+
+    /** @type {Record<string, GameAnimationAction[]>} */
+    const filtered = {};
+
+    for (const layer of Object.keys(layerActions)) {
+        if (!selectedLayers.includes(layer)) continue;
+        filtered[layer] = layerActions[layer];
+    }
+
+    return filtered;
 }
 
 // this function remove a clip from the animationProvider
+/**
+ * @param {string} entityType
+ * @param {string} actionName
+ */
 function removeClipFromProvider(entityType, actionName) {
     if (AnimationProvider?.[entityType].has(actionName)) { // if the clip exist in the map of the entityType of the provider
         AnimationProvider[entityType].delete(actionName); // we delete the action from the provider
@@ -61,6 +90,12 @@ function removeClipFromProvider(entityType, actionName) {
 }
 
 // this function get the clip to build the action from the animationProvider
+/**
+ * @param {string} entityType
+ * @param {string} actionName
+ * @param {string} armatureLayer
+ * @returns {AnimationClip}
+ */
 function getClipFromProvider(entityType, actionName, armatureLayer = ArmatureLayerEnum.All) {
     const entity = AnimationProvider?.[entityType];
     if (entity) { // we get the entity

@@ -12,6 +12,14 @@ export const StateEnum = Object.freeze({
     "Lockin": "Lockin",
 });
 
+// represent the state depending of the direction of the cross steps
+export const CrossStepState = {
+    left: StateEnum.CrossStep_left,
+    right: StateEnum.CrossStep_right,
+    back: StateEnum.CrossStep_back,
+    front: StateEnum.CrossStep_front,
+};
+
 // represent the differents type of animation layer in a body
 export const ArmatureLayerEnum = Object.freeze({
     "All": "All",
@@ -49,7 +57,6 @@ export const TypeOfAttack = Object.freeze({
     "Normal": "Normal",
     "Charged": "Charged",
     "ThrowedEntity": "ThrowedEntity"
-
 })
 
 export const TypeOfThrown = Object.freeze({

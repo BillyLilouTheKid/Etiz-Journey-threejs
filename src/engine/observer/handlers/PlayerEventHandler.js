@@ -2,6 +2,9 @@ import { ObserverObjectEnum } from "../../../types/enums";
 
 // this channel handle the action of player
 export default class PlayerEventHandler {
+    /**
+     * @param {Map<any, any>} entities
+     */
     constructor(entities) {
         this.entities = entities;
     }

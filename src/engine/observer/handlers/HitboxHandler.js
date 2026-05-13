@@ -3,12 +3,20 @@ import { EntityStatut } from "../../../types/enums";
 
 // this channel handle the actions for the hitbox
 export default class HitboxHandler {
+    /**
+     * @param {Map<any, any>} entities
+     * @param {Map<any, any>} props
+     */
     constructor(entities, props) {
         this.entities = entities;
         this.props = props;
     }
 
     // this method allow to fire an attack into an other entity
+    /**
+     * @param {{ boxMesh: import("three").Object3D<import("three").Object3DEventMap>; owner: { getId: () => any; }; }} hitbox
+     * @param {any} damageData
+     */
     fire(hitbox, damageData) {
         // we get the active hitbox of the hitbox
         const activeHitbox = new Box3().setFromObject(hitbox.boxMesh);
@@ -25,6 +33,9 @@ export default class HitboxHandler {
     }
 
     // return the entity that intersect the hitbox parameter
+    /**
+     * @param {{ boxMesh: import("three").Object3D<import("three").Object3DEventMap>; owner: { getId: () => any; }; }} hitbox
+     */
     returnIntersectEntity(hitbox) {
         // we get the active hitbox of the hitbox
         const activeHitbox = new Box3().setFromObject(hitbox.boxMesh);

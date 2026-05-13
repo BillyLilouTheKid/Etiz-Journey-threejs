@@ -1,9 +1,12 @@
 import { AnimationUtils, LoopOnce, LoopPingPong, LoopRepeat } from "three";
 import LayerAnimationSystem from "./base/LayerAnimationSystem";
 import { createActionByLayers } from "../provider/animationProvider";
-import { ArmatureLayerEnum } from "../../../types/enums";
 
 export default class PlayerAnimationSystem extends LayerAnimationSystem{
+    /**
+     * @param {AnimationMixer} mixer
+     * @param {AnimationClip[]} animations
+     */
     constructor(mixer, animations) {
         super(mixer, animations);
         this.chargedPunchTimer = null;
@@ -11,10 +14,10 @@ export default class PlayerAnimationSystem extends LayerAnimationSystem{
     }
 
     initPlayerActions() {
-        const comboClip = this.gestureActions["Attack_combo"]["All"].getClip();
-        const chargedClip = this.gestureActions["Charged_punch"]["All"].getClip();
-        const grabClip = this.gestureActions["Grab_Throw"]["All"].getClip();
-        const jumpClip = this.gestureActions["Jump"]["All"].getClip();
+        const comboClip = this.gestureActions["Attack_combo"]["All"][0].getClip();
+        const chargedClip = this.gestureActions["Charged_punch"]["All"][0].getClip();
+        const grabClip = this.gestureActions["Grab_Throw"]["All"][0].getClip();
+        const jumpClip = this.gestureActions["Jump"]["All"][0].getClip();
 
         const clipList = [
             AnimationUtils.subclip(comboClip, "Combo_Punch1", 0, 18),
@@ -46,13 +49,17 @@ export default class PlayerAnimationSystem extends LayerAnimationSystem{
         delete this.gestureActions["Cross_steps"];
     }
 
+    /**
+     * @param {string} comboName
+     * @param {{ (): void; (): void; }} comboStepReset
+     */
     playComboAction(comboName, comboStepReset) {
         // if it is the last combo punch or the state of the player is idle, the combo punch animation is played on both body layer
         const layer = comboName == "Combo_Punch4" || this.currentStateName == "Idle" ? "Both" : "Upper";
         const comboAction = this.gestureActions[comboName][layer];
         this.playAction(comboAction, LoopOnce, true, false, comboName !== "Combo_Punch1");
         
-        const onComboStop = (e) => {
+        const onComboStop = (/** @type {{ action: GameAnimationAction; }} */ e) => {
             const finishedActionLayer = e.action.getClip().name;
             if (["Combo_Punch1","Combo_Punch2","Combo_Punch3","Combo_Punch4"].includes(e.action.getClip().name)) {
                 // if the finished action animation was for the upper part (no Both layer) or the action was for Both layer and it is the Lower layer (witch the last and the upper part is finished)
@@ -61,24 +68,29 @@ export default class PlayerAnimationSystem extends LayerAnimationSystem{
                 }
                 comboStepReset();
                 this.tempAction = null;
-                this.crossFade(e.action, this.currentStateAction[e.action.layerBodyMask], 0.2);
+                const currentStateLayer = e.action.layerBodyMask;
+                if (!currentStateLayer) return;
+                this.crossFade([e.action], this.currentStateAction[currentStateLayer], 0.2);
             }
         };
         this.mixer.addEventListener('finished', onComboStop);
     }
 
+    /**
+     * @param {boolean} isCharging
+     */
     playChargedPunchAction(isCharging) {
         if (isCharging) {
             const initChargeAction = this.gestureActions["ChargedPunch_Init"]["Upper"];
             this.playAction(initChargeAction, LoopOnce, true, false);
 
             // when the first charging punch animation finished, we play this function
-            const onFinishInitCharging = (e) => {
+            const onFinishInitCharging = (/** @type {{ action: any; }} */ e) => {
                 if (e.action === initChargeAction) {
                     this.mixer.removeEventListener('finished', onFinishInitCharging); // we remove the listener
-                    const holdChargeAction = this.gestureActions["ChargedPunch_Hold"]["Upper"];
-                    holdChargeAction.reset().setLoop(LoopPingPong).setEffectiveWeight(1).play();
-                    this.crossFade(initChargeAction, holdChargeAction, 0.2);
+                    const holdChargeAction = this.gestureActions["ChargedPunch_Hold"]["Upper"][0];
+                    holdChargeAction.reset().setLoop(LoopPingPong, Infinity).setEffectiveWeight(1).play();
+                    this.crossFade(initChargeAction, [holdChargeAction], 0.2);
                     this.tempAction = [holdChargeAction];
                 }
             };
@@ -103,6 +115,9 @@ export default class PlayerAnimationSystem extends LayerAnimationSystem{
     }
     
     // this handle the jump animation
+    /**
+     * @param {boolean} onground
+     */
     playJumpAction(onground) {
         // if the player is on the ground and is gonna jump then we play the jump animation
         if (onground) {
@@ -110,15 +125,15 @@ export default class PlayerAnimationSystem extends LayerAnimationSystem{
             this.playAction(jumpInitAction, LoopOnce, true, false);
 
             // this function will run after the end of the init jump action
-            const onFinishInitJump = (e) => {
+            const onFinishInitJump = (/** @type {{ action: GameAnimationAction; }} */ e) => {
                 if (jumpInitAction.includes(e.action)) {
                     if (e.action.layerBodyMask == "Lower") { // if the finished action is from the lower part of the body then
                         this.mixer.removeEventListener('finished', onFinishInitJump); // we delete the listener
                     }
                     const inAirAction = this.gestureActions["Jump_Air"]["Both"]; // we play the animation in air loop
-                    inAirAction.forEach((action)=>{
-                        action.reset().setLoop(LoopRepeat).setEffectiveWeight(1).play();
-                        this.crossFade(jumpInitAction[jumpInitAction.findIndex((jAction)=>jAction.layerBodyMask === e.action.layerBodyMask)], action, 0.2);
+                    inAirAction.forEach((/** @type {GameAnimationAction} */ action)=>{
+                        action.reset().setLoop(LoopRepeat, Infinity).setEffectiveWeight(1).play();
+                        this.crossFade([jumpInitAction[jumpInitAction.findIndex((/** @type {GameAnimationAction} */ jAction)=>jAction.layerBodyMask === e.action.layerBodyMask)]], [action], 0.2);
                     });
                     this.tempAction = inAirAction;
                 }
@@ -134,7 +149,7 @@ export default class PlayerAnimationSystem extends LayerAnimationSystem{
     resetCrossStepAnimations() {
         ["CrossStep_left","CrossStep_right","CrossStep_front","CrossStep_back"].forEach((crossStepState)=>{
             for (const [key, value] of Object.entries(this.stateActions[crossStepState])) {
-                value.crossFadeTo(this.currentStateAction[key]);
+                value.forEach((action)=>action.crossFadeTo(this.currentStateAction[key][0], 0.2, false));
             }
         })
     }

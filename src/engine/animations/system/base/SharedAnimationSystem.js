@@ -3,14 +3,20 @@ import { ArmatureLayerEnum, StateEnum } from '../../../../types/enums';
 import { getClipFromProvider, addClipToProvider } from '../../provider/animationProvider';
 
 export default class SharedAnimationSystem {
+    /**
+     * @param {string} objectName
+     * @param {AnimationMixer} mixer
+     * @param {AnimationClip[]} animations
+     */
     constructor(objectName, mixer, animations) {
         this.objectName = objectName;
         this.mixer = mixer;
+        /** @type {Record<string, AnimationAction>} */
         this.stateActions = {};
 
         // Separate animation from type
-        animations.forEach((clip) => {
-            if (Object.values(StateEnum).includes(clip.name)) {
+        animations.forEach((/** @type {AnimationClip} */ clip) => {
+            if (Object.values(StateEnum).includes(/** @type {any} */(clip.name))) {
                 this.stateActions[clip.name] = this.mixer.clipAction(clip);
             }
             else {
@@ -28,6 +34,9 @@ export default class SharedAnimationSystem {
     }
 
     // --- State Handlers (idle, walk, run...)
+    /**
+     * @param {string} newState
+     */
     updateState(newState, force = false) {
         if (this.tempAction && !force) return; // ignore if temp action play
         if (newState === this.currentStateName) return;
@@ -36,6 +45,7 @@ export default class SharedAnimationSystem {
         if (!next) return;
 
         this.crossFade(this.currentStateAction, next, 0.3);
+        /** @type {string} */
         this.currentStateName = newState;
         this.currentStateAction = next;
     }
@@ -43,6 +53,14 @@ export default class SharedAnimationSystem {
     
 
     // --- Actions handlers (attack, jump, etc.)
+    /**
+     * @param {AnimationAction} action
+     * @param {AnimationActionLoopStyles} loop
+     * @param {boolean} clamp
+     * @param {boolean} backCrossFade
+     * @param {boolean} isTempPreviousAction
+     * @param {any} callbackEnd
+     */
     playAction(action, loop = LoopOnce, clamp = false, backCrossFade = true, isTempPreviousAction = false, callbackEnd = null) {
         const nextAction = action;
 
@@ -51,10 +69,12 @@ export default class SharedAnimationSystem {
             this.tempAction.stop();
         }
 
+        const repetitions = loop === LoopOnce ? 1 : Infinity;
+
         // launch the animation and stop at last frame
         nextAction.clampWhenFinished = clamp; // stop at the last frame
         nextAction.reset()
-            .setLoop(loop)
+            .setLoop(loop, repetitions)
             .setEffectiveWeight(1)
             .play();
 
@@ -65,7 +85,7 @@ export default class SharedAnimationSystem {
 
         if (backCrossFade) {
             // When action finish we go back to the currentState animation
-            const onFinished = (e) => {
+            const onFinished = (/** @type {{ action: any; }} */ e) => {
                 if (e.action === nextAction) {
                     this.mixer.removeEventListener('finished', onFinished);
                     this.crossFade(nextAction, this.currentStateAction, 0.2);
@@ -77,12 +97,25 @@ export default class SharedAnimationSystem {
         }
     }
 
+    /**
+     * @param {string} actionName
+     * @param {AnimationActionLoopStyles} loop
+     * @param {boolean} clamp
+     * @param {boolean} backCrossFade
+     * @param {string} layer
+     * @param {any} callbackEnd
+     */
     playActionByName(actionName, loop = LoopOnce, clamp = false, backCrossFade = true, layer = ArmatureLayerEnum.All, callbackEnd = null) {
         const action = this.mixer.clipAction(getClipFromProvider(this.objectName, actionName, layer));
         if (!action) return;
         this.playAction(action, loop, clamp, backCrossFade, false, callbackEnd);
     }
 
+    /**
+     * @param {AnimationAction} from
+     * @param {AnimationAction} to
+     * @param {number} duration
+     */
     crossFade(from, to, duration) {
         to.enabled = true;
         to.reset().play();
